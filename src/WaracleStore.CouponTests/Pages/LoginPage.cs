@@ -13,8 +13,6 @@ public sealed class LoginPage(BrowserDriver driver)
 
     public ILocator SignInButton => Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Sign In", Exact = true });
 
-    public ILocator ErrorBanner => Page.GetByText("Incorrect email or password.");
-
     public Task OpenAsync() => driver.GotoAsync("/login");
 
     public async Task SignInAsync(string email, string password)

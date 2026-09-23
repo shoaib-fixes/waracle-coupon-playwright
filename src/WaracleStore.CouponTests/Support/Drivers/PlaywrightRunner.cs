@@ -30,6 +30,10 @@ public sealed class PlaywrightRunner : IAsyncDisposable
     {
         var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
 
+        // Web-first assertions (Expect) have their own timeout, separate from action timeouts;
+        // keep both driven by the same setting.
+        Assertions.SetDefaultExpectTimeout(settings.DefaultTimeoutMs);
+
         await AssertStoreIsReachableAsync(playwright, settings);
         var token = await SignInThroughApiAsync(playwright, settings);
 
