@@ -22,6 +22,12 @@
     <!-- Readable assertions for computed values -->
     <PackageReference Include="Shouldly" Version="4.3.0" />
 
+    <!-- axe-core accessibility scans on a Playwright page -->
+    <PackageReference Include="Deque.AxeCore.Playwright" Version="4.13.0" />
+
+    <!-- Allure results per scenario (steps, attachments, parameters); rendered with `allure generate` -->
+    <PackageReference Include="Allure.Reqnroll" Version="2.15.0" />
+
     <!-- Typed, layered configuration -->
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.12" />
@@ -32,6 +38,7 @@
   <ItemGroup>
     <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
     <None Update="appsettings.*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="allureConfig.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,33 @@
+{
+  "allure": {
+    "directory": "allure-results",
+    "failExceptions": [
+      "Shouldly.ShouldAssertException",
+      "Microsoft.Playwright.PlaywrightException",
+      "NUnit.Framework.AssertionException"
+    ],
+    "gherkinPatterns": {
+      "stepArguments": {
+        "createFromDataTables": true,
+        "nameColumn": "^Parameter$",
+        "valueColumn": "^Value$"
+      },
+      "grouping": {
+        "suites": {
+          "parentSuite": "^allure\\.parentSuite:(.+)$",
+          "suite": "^allure\\.suite:(.+)$",
+          "subSuite": "^allure\\.subSuite:(.+)$"
+        },
+        "behaviors": {
+          "epic": "^allure\\.epic:(.+)$",
+          "story": "^allure\\.story:(.+)$"
+        }
+      },
+      "metadata": {
+        "owner": "^allure\\.owner:(.+)$",
+        "severity": "^(blocker|critical|normal|minor|trivial)$",
+        "label": "^allure\\.label\\.([^:]+):(.+)$"
+      }
+    }
+  }
+}

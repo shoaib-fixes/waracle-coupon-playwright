@@ -24,6 +24,12 @@ public sealed class ScenarioState
 
     public DisplayedConfirmation? Confirmation { get; set; }
 
+    /// <summary>The <c>order</c> object returned by POST /api/orders in an API scenario.</summary>
+    public System.Text.Json.JsonElement? PlacedOrder { get; set; }
+
+    /// <summary>Measurements taken by performance scenarios, keyed by metric name, in milliseconds.</summary>
+    public Dictionary<string, double> Timings { get; } = new();
+
     public void AddToBasket(BasketLine line)
     {
         var existing = Basket.FindIndex(l => l.Product.Id == line.Product.Id && l.Size == line.Size);

@@ -40,6 +40,8 @@ public sealed class TestSettings
 
     public Credentials Credentials { get; init; } = new();
 
+    public PerformanceBudgets Budgets { get; init; } = new();
+
     public string ResolvedArtifactsDirectory =>
         Path.IsPathRooted(ArtifactsDirectory)
             ? ArtifactsDirectory
@@ -68,10 +70,29 @@ public sealed class TestSettings
         if (string.IsNullOrWhiteSpace(Credentials.Email) || string.IsNullOrWhiteSpace(Credentials.Password))
             problems.Add("Credentials.Email and Credentials.Password are required.");
 
+        if (Budgets.PageLoadMs <= 0 || Budgets.LargestContentfulPaintMs <= 0 || Budgets.CouponApplyMs <= 0 || Budgets.SummaryApiP95Ms <= 0)
+            problems.Add("Every Budgets value must be a positive number of milliseconds.");
+
         if (problems.Count > 0)
             throw new InvalidOperationException(
                 "Invalid test configuration:" + Environment.NewLine + string.Join(Environment.NewLine, problems.Select(p => "  - " + p)));
     }
+}
+
+/// <summary>Smoke-level performance budgets in milliseconds. These catch regressions, they are not a load test.</summary>
+public sealed class PerformanceBudgets
+{
+    /// <summary>Navigation Timing <c>loadEventEnd</c> for the cart page.</summary>
+    public int PageLoadMs { get; init; } = 3_000;
+
+    /// <summary>Largest Contentful Paint for the cart page.</summary>
+    public int LargestContentfulPaintMs { get; init; } = 2_500;
+
+    /// <summary>Click on Apply until the discount line is rendered.</summary>
+    public int CouponApplyMs { get; init; } = 1_500;
+
+    /// <summary>95th percentile of POST /api/cart/summary over a short burst of requests.</summary>
+    public int SummaryApiP95Ms { get; init; } = 300;
 }
 
 public sealed class Credentials

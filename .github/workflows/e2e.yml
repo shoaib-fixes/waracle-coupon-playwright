@@ -146,6 +146,23 @@ jobs:
           --results-directory TestResults
           -- NUnit.NumberOfTestWorkers=${{ env.WORKERS }}
 
+      # Both test steps write into the same allure-results folder, so one report covers the
+      # gate and the known defects, with traces, screenshots and axe scans attached per scenario.
+      - name: Generate Allure report
+        if: always()
+        run: >
+          npx --yes allure@3 generate src/WaracleStore.CouponTests/bin/Release/net10.0/allure-results
+          -o allure-report
+          --name "Waracle coupon suite (${{ env.BROWSER }})"
+
+      - name: Upload Allure report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-report-${{ env.BROWSER }}
+          path: allure-report/
+          if-no-files-found: warn
+
       - name: Upload results, traces and screenshots
         uses: actions/upload-artifact@v4
         if: always()
