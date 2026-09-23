@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <ResultsDirectory>./TestResults</ResultsDirectory>
+    <TestSessionTimeout>900000</TestSessionTimeout>
+  </RunConfiguration>
+  <NUnit>
+    <!-- Scenarios run in parallel across this many worker threads.
+         Override from the CLI (see README): dotnet test [args] NUnit.NumberOfTestWorkers=8 -->
+    <NumberOfTestWorkers>4</NumberOfTestWorkers>
+    <DefaultTestNamePattern>{m}{a}</DefaultTestNamePattern>
+  </NUnit>
+</RunSettings>
