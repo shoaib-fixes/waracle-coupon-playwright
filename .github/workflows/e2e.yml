@@ -172,7 +172,7 @@ jobs:
           --name "Waracle coupon suite (${{ env.BROWSER }})"
 
       - name: Upload Allure report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: allure-report-${{ env.BROWSER }}
@@ -180,7 +180,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload results, traces and screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: e2e-${{ env.BROWSER }}
