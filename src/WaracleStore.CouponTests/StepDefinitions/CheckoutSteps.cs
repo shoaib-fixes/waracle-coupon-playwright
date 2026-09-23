@@ -3,17 +3,47 @@ using Reqnroll;
 using Shouldly;
 using WaracleStore.CouponTests.Pages;
 using WaracleStore.CouponTests.Support;
+using WaracleStore.CouponTests.Support.Data;
 using WaracleStore.CouponTests.Support.Pricing;
 
 namespace WaracleStore.CouponTests.StepDefinitions;
 
 [Binding]
-public sealed class CheckoutSteps(ScenarioState state, CartPage cartPage, CheckoutPage checkoutPage, OrderConfirmationPage confirmationPage)
+public sealed class CheckoutSteps(
+    ScenarioState state,
+    CartPage cartPage,
+    CheckoutPage checkoutPage,
+    OrderConfirmationPage confirmationPage,
+    BasketSteps basketSteps,
+    CouponSteps couponSteps)
 {
+    /// <summary>
+    /// Shortcut for scenarios whose subject is the checkout or the confirmation, not the cart:
+    /// seed the basket, apply the coupon in the cart, wait for it to be priced, and move on.
+    /// Composed from the same steps a reader would otherwise see spelled out.
+    /// </summary>
+    [Given("I am at the checkout with {string} and the coupon {string} applied")]
+    public async Task GivenAtCheckoutWithCoupon(string basket, string coupon)
+    {
+        await basketSteps.GivenBasketContains(basket);
+        await basketSteps.WhenOpenCart();
+        await couponSteps.WhenApplyCoupon(coupon);
+        await couponSteps.ThenCouponLineFor(coupon);
+        await WhenProceedToCheckout();
+    }
+
+    [Given("I am at the checkout with {string} and no coupon")]
+    public async Task GivenAtCheckoutWithoutCoupon(string basket)
+    {
+        await basketSteps.GivenBasketContains(basket);
+        await basketSteps.WhenOpenCart();
+        await WhenProceedToCheckout();
+    }
+
     [When("I proceed to checkout")]
     public async Task WhenProceedToCheckout()
     {
-        await cartPage.ProceedToCheckoutButton.ClickAsync();
+        await cartPage.ProceedToCheckoutAsync();
         await checkoutPage.WaitForAsync();
     }
 

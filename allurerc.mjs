@@ -1,6 +1,10 @@
 // Allure Report 3 configuration. Picked up automatically when `allure generate` runs from the
 // repository root (scripts/report.sh and the CI workflow both do).
-const observations = "https://github.com/shoaib-fixes/waracle-coupon-playwright/blob/main/docs/ReleaseObservations.md";
+const repository =
+  process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY
+    ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}`
+    : "https://github.com/shoaib-fixes/waracle-coupon-playwright";
+const observations = `${repository}/blob/main/docs/ReleaseObservations.md`;
 
 const isKnownDefect = (labels) => labels.some((l) => l.name === "tag" && l.value === "KnownDefect");
 

@@ -13,7 +13,7 @@ public static class AmountAssertions
     {
         var mismatches = amounts
             .Where(a => a.Expected != a.Actual)
-            .Select(a => $"{a.Name}: expected {Describe(a.Expected)}, displayed {Describe(a.Actual)}")
+            .Select(a => $"{a.Name}: expected {Describe(a.Expected)}, actual {Describe(a.Actual)}")
             .ToList();
 
         if (mismatches.Count == 0)

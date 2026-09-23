@@ -1,4 +1,5 @@
 using Microsoft.Playwright;
+using WaracleStore.CouponTests.Support.Drivers;
 using WaracleStore.CouponTests.Support.Pricing;
 
 namespace WaracleStore.CouponTests.Pages.Components;
@@ -18,19 +19,12 @@ public sealed record DisplayedSummary(decimal Subtotal, decimal? Discount, decim
 /// The store exposes no test ids or ARIA structure on these rows, so rows are located by their
 /// visible label and the amount is the last cell of that row. See README → "Testability notes".
 /// </remarks>
-public sealed class OrderSummaryComponent
+public sealed class OrderSummaryComponent(BrowserDriver driver)
 {
-    private readonly ILocator _root;
-
-    public OrderSummaryComponent(IPage page)
+    public ILocator Root => driver.Page.Locator(".card").Filter(new LocatorFilterOptions
     {
-        _root = page.Locator(".card").Filter(new LocatorFilterOptions
-        {
-            Has = page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Order Summary", Exact = true }),
-        });
-    }
-
-    public ILocator Root => _root;
+        Has = driver.Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Order Summary", Exact = true }),
+    });
 
     public ILocator SubtotalRow => Row("Subtotal");
 
@@ -38,8 +32,11 @@ public sealed class OrderSummaryComponent
 
     public ILocator TotalRow => Row("Total");
 
+    /// <summary>A row whose label reads "Coupon (CODE)"; the confirmation page renders the same markup.</summary>
+    public const string CouponRowSelector = "div:has(> span:text-matches(\"^Coupon \\\\(\"))";
+
     /// <summary>The discount line, labelled "Coupon (CODE)". Absent when no discount applies.</summary>
-    public ILocator CouponRow => _root.Locator("div:has(> span:text-matches(\"^Coupon \\\\(\"))");
+    public ILocator CouponRow => Root.Locator(CouponRowSelector);
 
     public async Task<decimal> SubtotalAsync() => await AmountAsync(SubtotalRow);
 
@@ -73,7 +70,7 @@ public sealed class OrderSummaryComponent
             await CouponLabelAsync());
     }
 
-    private ILocator Row(string label) => _root.Locator($"div:has(> span:text-is(\"{label}\"))");
+    private ILocator Row(string label) => Root.Locator($"div:has(> span:text-is(\"{label}\"))");
 
     private static async Task<decimal> AmountAsync(ILocator row) =>
         Money.Parse(await row.Locator("span").Last.InnerTextAsync());

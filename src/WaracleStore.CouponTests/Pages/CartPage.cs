@@ -9,14 +9,15 @@ public sealed class CartPage(BrowserDriver driver)
 {
     private IPage Page => driver.Page;
 
-    public OrderSummaryComponent Summary => new(Page);
+    public OrderSummaryComponent Summary => new(driver);
 
-    public ToastComponent Toasts => new(Page);
+    public ToastComponent Toasts => new(driver);
 
     public ILocator Heading => Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Shopping Cart", Exact = true });
 
     public ILocator EmptyState => Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Your cart is empty", Exact = true });
 
+    /// <summary>The coupon input has no label, only a placeholder (see README → Testability notes).</summary>
     public ILocator CouponField => Page.GetByPlaceholder("e.g. WARACLE25");
 
     public ILocator ApplyCouponButton => Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Apply", Exact = true });
@@ -25,6 +26,8 @@ public sealed class CartPage(BrowserDriver driver)
     public ILocator CouponAppliedNote => Summary.Root.GetByText(new Regex("^Coupon .+ applied$"));
 
     public ILocator ProceedToCheckoutButton => Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Proceed to Checkout", Exact = true });
+
+    public Task ProceedToCheckoutAsync() => ProceedToCheckoutButton.ClickAsync();
 
     public async Task OpenAsync()
     {
@@ -38,12 +41,17 @@ public sealed class CartPage(BrowserDriver driver)
         await ApplyCouponButton.ClickAsync();
     }
 
+    /// <summary>
+    /// A line in the items column. Lines carry no test id or landmark, so the card is found by
+    /// its product-name heading; a product in two sizes would need a size qualifier as well.
+    /// </summary>
     public ILocator LineItem(string productName) =>
         Page.Locator(".card").Filter(new LocatorFilterOptions
         {
             Has = Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = productName, Exact = true }),
         });
 
+    /// <summary>The quantity is a bare span between the "–" and "+" buttons; it is located relative to "+".</summary>
     public ILocator QuantityOf(string productName) =>
         LineItem(productName).GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "+", Exact = true })
             .Locator("xpath=preceding-sibling::span[1]");

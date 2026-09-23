@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # Playwright and its browser build move together; Reqnroll and Allure likewise.
+      playwright:
+        patterns: ["Microsoft.Playwright*", "Deque.AxeCore*"]
+      test-framework:
+        patterns: ["NUnit*", "Microsoft.NET.Test.Sdk", "Reqnroll*", "Allure*", "Shouldly"]
+      microsoft-extensions:
+        patterns: ["Microsoft.Extensions.*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

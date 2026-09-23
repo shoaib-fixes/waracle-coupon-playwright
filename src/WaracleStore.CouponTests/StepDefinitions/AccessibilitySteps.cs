@@ -1,17 +1,18 @@
 using System.Text;
-using Allure.Net.Commons;
 using Deque.AxeCore.Commons;
 using Deque.AxeCore.Playwright;
-using NUnit.Framework;
+using Microsoft.Playwright;
 using Reqnroll;
 using Shouldly;
+using WaracleStore.CouponTests.Pages.Components;
+using WaracleStore.CouponTests.Support;
 using WaracleStore.CouponTests.Support.Config;
 using WaracleStore.CouponTests.Support.Drivers;
 
 namespace WaracleStore.CouponTests.StepDefinitions;
 
 [Binding]
-public sealed class AccessibilitySteps(BrowserDriver driver, TestSettings settings, ScenarioContext scenarioContext)
+public sealed class AccessibilitySteps(BrowserDriver driver, TestSettings settings, ScenarioContext scenarioContext, ToastComponent toasts)
 {
     private static readonly string[] Wcag21AaTags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
     private static readonly string[] FailingImpacts = ["critical", "serious"];
@@ -19,6 +20,10 @@ public sealed class AccessibilitySteps(BrowserDriver driver, TestSettings settin
     [Then("the page has no serious or critical WCAG 2.1 AA violations")]
     public async Task ThenNoSeriousViolations()
     {
+        // Toasts auto-dismiss after ~3 s; scanning while one is still fading would make the
+        // findings depend on timing, so wait for the page to be quiet first.
+        await Assertions.Expect(toasts.All).ToHaveCountAsync(0);
+
         var results = await driver.Page.RunAxe(new AxeRunOptions
         {
             RunOnly = new RunOnlyOptions { Type = "tag", Values = Wcag21AaTags.ToList() },
@@ -72,12 +77,8 @@ public sealed class AccessibilitySteps(BrowserDriver driver, TestSettings settin
 
     private async Task AttachAsync(string report)
     {
-        Directory.CreateDirectory(settings.ResolvedArtifactsDirectory);
-        var safeTitle = string.Concat(scenarioContext.ScenarioInfo.Title.Where(char.IsLetterOrDigit));
-        var path = Path.Combine(settings.ResolvedArtifactsDirectory, $"axe_{safeTitle}_{DateTime.UtcNow:HHmmssfff}.md");
+        var path = Attachments.PathFor(settings, scenarioContext.ScenarioInfo.Title, ".axe.md");
         await File.WriteAllTextAsync(path, report);
-
-        TestContext.AddTestAttachment(path, "axe-core scan");
-        AllureApi.AddAttachment("axe-core scan", "text/markdown", path);
+        Attachments.AddToCurrentStep("axe-core scan", "text/markdown", path);
     }
 }

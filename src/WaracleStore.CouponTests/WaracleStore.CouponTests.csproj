@@ -5,6 +5,8 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <RootNamespace>WaracleStore.CouponTests</RootNamespace>
+    <!-- Plain `dotnet test` gets the same worker count and timeouts as CI -->
+    <RunSettingsFilePath>$(MSBuildProjectDirectory)/test.runsettings</RunSettingsFilePath>
   </PropertyGroup>
 
   <ItemGroup>

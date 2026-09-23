@@ -11,9 +11,6 @@ namespace WaracleStore.CouponTests.StepDefinitions;
 [Binding]
 public sealed class CouponApiSteps(ApiDriver api, ScenarioState state)
 {
-    private static readonly object SampleCustomer = new { name = "John Doe", email = "john.doe@example.com" };
-    private static readonly object SampleShipping = new { address = "10 Digital Drive", city = "Edinburgh", postcode = "EH1 1AA", country = "United Kingdom" };
-
     // ---- cart summary -------------------------------------------------------------------------
 
     [When("I request a cart summary for {string}")]
@@ -30,7 +27,7 @@ public sealed class CouponApiSteps(ApiDriver api, ScenarioState state)
 
     [When("I request a cart summary for an unknown product")]
     public Task WhenRequestSummaryUnknownProduct() =>
-        api.PostAsync("/api/cart/summary", new { items = new[] { new { productId = "p-does-not-exist", quantity = 1 } } });
+        api.PostAsync(ApiRoutes.CartSummary, new { items = new[] { new { productId = "p-does-not-exist", quantity = 1 } } });
 
     // ---- orders ---------------------------------------------------------------------------------
 
@@ -47,7 +44,7 @@ public sealed class CouponApiSteps(ApiDriver api, ScenarioState state)
     public Task WhenFetchPlacedOrder()
     {
         var id = state.PlacedOrder.ShouldNotBeNull("no order has been placed in this scenario").GetProperty("id").GetString();
-        return api.GetAsync($"/api/orders/{id}", signedIn: true);
+        return api.GetOrderAsync(id!);
     }
 
     // ---- assertions -----------------------------------------------------------------------------
@@ -86,7 +83,7 @@ public sealed class CouponApiSteps(ApiDriver api, ScenarioState state)
         var pricing = LastPricing();
 
         AmountAssertions.ShouldAllMatch(
-            $"API pricing does not follow AC-2/3/4 for {DescribeBasket()} with coupon \"{state.CouponCode}\".{Environment.NewLine}  expected: {quote}{Environment.NewLine}  response: {pricing}",
+            $"API pricing does not follow AC-2/3/4 for {state.DescribeBasket()} with coupon \"{state.CouponCode}\".{Environment.NewLine}  expected: {quote}{Environment.NewLine}  response: {pricing}",
             ("subtotal", quote.Subtotal, pricing.Subtotal),
             ("discount", quote.Discount, pricing.Discount),
             ("shipping", quote.Shipping, pricing.Shipping),
@@ -133,34 +130,22 @@ public sealed class CouponApiSteps(ApiDriver api, ScenarioState state)
 
     private Task RequestSummaryAsync(IReadOnlyList<BasketLine> basket, string? coupon)
     {
-        RememberBasket(basket, coupon);
-        return api.PostAsync("/api/cart/summary", new
-        {
-            items = basket.Select(l => new { productId = l.Product.Id, quantity = l.Quantity }),
-            couponCode = coupon,
-        });
+        Remember(basket, coupon);
+        return api.CartSummaryAsync(state.Basket, coupon);
     }
 
     private async Task PlaceOrderAsync(IReadOnlyList<BasketLine> basket, string? coupon, bool signedIn)
     {
-        RememberBasket(basket, coupon);
-        var response = await api.PostAsync("/api/orders", new
-        {
-            items = basket.Select(l => new { productId = l.Product.Id, quantity = l.Quantity, size = l.Size }),
-            couponCode = coupon,
-            customer = SampleCustomer,
-            shipping = SampleShipping,
-        }, signedIn);
+        Remember(basket, coupon);
+        var response = await api.PlaceOrderAsync(state.Basket, coupon, signedIn);
 
         if (response.Ok)
             state.PlacedOrder = api.LastJson.GetProperty("order");
     }
 
-    private void RememberBasket(IReadOnlyList<BasketLine> basket, string? coupon)
+    private void Remember(IReadOnlyList<BasketLine> basket, string? coupon)
     {
-        var snapshot = basket.ToList(); // callers may pass state.Basket itself
-        state.Basket.Clear();
-        state.Basket.AddRange(snapshot);
+        state.ReplaceBasket(basket);
         state.CouponCode = coupon;
     }
 
@@ -173,6 +158,4 @@ public sealed class CouponApiSteps(ApiDriver api, ScenarioState state)
             ? order
             : throw new ShouldAssertException($"The last response is not an order: {api.LastBody}");
 
-    private string DescribeBasket() =>
-        state.Basket.Count == 0 ? "an empty basket" : string.Join(", ", state.Basket.Select(l => $"{l.Quantity} x {l.Product.Name} @ {Money.Format(l.Product.Price)}"));
 }

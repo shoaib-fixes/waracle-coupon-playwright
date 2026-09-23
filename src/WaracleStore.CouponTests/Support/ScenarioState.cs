@@ -1,6 +1,7 @@
 using WaracleStore.CouponTests.Pages;
 using WaracleStore.CouponTests.Pages.Components;
 using WaracleStore.CouponTests.Support.Data;
+using WaracleStore.CouponTests.Support.Pricing;
 
 namespace WaracleStore.CouponTests.Support;
 
@@ -30,6 +31,20 @@ public sealed class ScenarioState
     /// <summary>Measurements taken by performance scenarios, keyed by metric name, in milliseconds.</summary>
     public Dictionary<string, double> Timings { get; } = new();
 
+    /// <summary>Replaces the basket. Safe to call with <see cref="Basket"/> itself.</summary>
+    public void ReplaceBasket(IEnumerable<BasketLine> lines)
+    {
+        var snapshot = lines.ToList();
+        Basket.Clear();
+        foreach (var line in snapshot)
+            AddToBasket(line);
+    }
+
+    public string DescribeBasket() =>
+        Basket.Count == 0
+            ? "an empty basket"
+            : string.Join(", ", Basket.Select(l => $"{l.Quantity} x {l.Product.Name} @ {Money.Format(l.Product.Price)}"));
+
     public void AddToBasket(BasketLine line)
     {
         var existing = Basket.FindIndex(l => l.Product.Id == line.Product.Id && l.Size == line.Size);
@@ -41,12 +56,25 @@ public sealed class ScenarioState
 
     public void ChangeQuantity(string productName, int delta)
     {
-        var index = Basket.FindIndex(l => string.Equals(l.Product.Name, productName, StringComparison.OrdinalIgnoreCase));
-        if (index < 0)
-            throw new InvalidOperationException($"'{productName}' is not in the scenario's basket.");
+        var index = Basket.IndexOf(SingleLineNamed(productName));
         Basket[index] = Basket[index] with { Quantity = Basket[index].Quantity + delta };
     }
 
-    public void Remove(string productName) =>
-        Basket.RemoveAll(l => string.Equals(l.Product.Name, productName, StringComparison.OrdinalIgnoreCase));
+    public void Remove(string productName) => Basket.Remove(SingleLineNamed(productName));
+
+    /// <summary>
+    /// Cart steps address lines by product name, which is unambiguous only while a product
+    /// appears in one size; a scenario that needs two sizes of one product must address lines
+    /// by size as well, so this refuses to guess.
+    /// </summary>
+    private BasketLine SingleLineNamed(string productName)
+    {
+        var matches = Basket.Where(l => string.Equals(l.Product.Name, productName, StringComparison.OrdinalIgnoreCase)).ToList();
+        return matches.Count switch
+        {
+            1 => matches[0],
+            0 => throw new InvalidOperationException($"'{productName}' is not in the scenario's basket."),
+            _ => throw new InvalidOperationException($"'{productName}' is in the basket in {matches.Count} sizes; steps address lines by name only."),
+        };
+    }
 }

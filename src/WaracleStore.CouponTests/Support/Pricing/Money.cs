@@ -26,6 +26,6 @@ public static partial class Money
         return negative ? -magnitude : magnitude;
     }
 
-    [GeneratedRegex(@"(?<sign>[-–−])?\s*£\s*(?<amount>\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)")]
+    [GeneratedRegex(@"(?<sign>[-–−])?\s*£\s*(?<amount>\d[\d,]*(?:\.\d{2})?)")]
     private static partial Regex AmountPattern();
 }

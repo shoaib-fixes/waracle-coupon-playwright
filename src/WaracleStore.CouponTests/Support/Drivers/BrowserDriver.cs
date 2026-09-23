@@ -1,19 +1,22 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.Playwright;
-using NUnit.Framework;
 using WaracleStore.CouponTests.Support.Config;
 
 namespace WaracleStore.CouponTests.Support.Drivers;
 
 /// <summary>
-/// Scenario-scoped browser state. Reqnroll creates one instance per scenario, so every
-/// scenario owns an isolated <see cref="IBrowserContext"/> (fresh cookies, localStorage
-/// and cache) and a single <see cref="IPage"/>. Tracing runs per context and the trace
-/// is attached to the NUnit result on failure.
+/// Scenario-scoped browser state. Reqnroll creates one instance per scenario, so every UI
+/// scenario owns an isolated <see cref="IBrowserContext"/> (fresh cookies, localStorage and
+/// cache) and a single <see cref="IPage"/>. Tracing runs per context; the caller decides
+/// where the kept artefacts are attached.
 /// </summary>
-public sealed partial class BrowserDriver(PlaywrightRunner runner, TestSettings settings)
+public sealed class BrowserDriver(PlaywrightHost host, TestSettings settings)
 {
+    // A desktop viewport wide enough for the two-column cart/checkout layouts; en-GB so
+    // currency and dates render exactly as the assertions expect.
+    private static readonly ViewportSize Viewport = new() { Width = 1280, Height = 900 };
+    private const string Locale = "en-GB";
+
     private IBrowserContext? _context;
     private IPage? _page;
 
@@ -21,15 +24,15 @@ public sealed partial class BrowserDriver(PlaywrightRunner runner, TestSettings 
 
     public IBrowserContext Context => _context ?? throw new InvalidOperationException("The browser has not been started for this scenario.");
 
-    public string AuthToken => runner.AuthToken;
+    public string AuthToken => host.AuthToken;
 
     public async Task StartAsync()
     {
-        _context = await runner.Browser.NewContextAsync(new BrowserNewContextOptions
+        _context = await host.Browser.NewContextAsync(new BrowserNewContextOptions
         {
             BaseURL = settings.BaseUrl,
-            ViewportSize = new ViewportSize { Width = 1280, Height = 900 },
-            Locale = "en-GB",
+            ViewportSize = Viewport,
+            Locale = Locale,
         });
         _context.SetDefaultTimeout(settings.DefaultTimeoutMs);
 
@@ -66,12 +69,9 @@ public sealed partial class BrowserDriver(PlaywrightRunner runner, TestSettings 
         return Context.AddInitScriptAsync(script);
     }
 
-    public bool IsStarted => _context is not null;
-
     /// <summary>
-    /// Stops tracing, keeps artefacts according to <see cref="TraceMode"/>, attaches them to the
-    /// NUnit result and closes the context. Returns the kept artefacts so the caller can attach
-    /// them elsewhere (the Allure report).
+    /// Stops tracing, keeps a screenshot on failure and the trace according to
+    /// <see cref="TraceMode"/>, closes the context, and returns what was kept.
     /// </summary>
     public async Task<IReadOnlyList<Artifact>> StopAsync(string scenarioTitle, Exception? error)
     {
@@ -82,18 +82,12 @@ public sealed partial class BrowserDriver(PlaywrightRunner runner, TestSettings 
         var keepTrace = settings.TraceMode == TraceMode.On || (settings.TraceMode == TraceMode.RetainOnFailure && failed);
         var kept = new List<Artifact>();
 
-        if (keepTrace || failed)
-            Directory.CreateDirectory(settings.ResolvedArtifactsDirectory);
-
-        var stem = ArtifactStem(scenarioTitle);
-
         if (failed && _page is not null && !_page.IsClosed)
         {
-            var screenshotPath = Path.Combine(settings.ResolvedArtifactsDirectory, stem + ".png");
+            var screenshotPath = Attachments.PathFor(settings, scenarioTitle, ".png");
             try
             {
                 await _page.ScreenshotAsync(new PageScreenshotOptions { Path = screenshotPath, FullPage = true });
-                TestContext.AddTestAttachment(screenshotPath, "Screenshot at failure");
                 kept.Add(new Artifact("Screenshot at failure", "image/png", screenshotPath));
             }
             catch (PlaywrightException)
@@ -104,13 +98,10 @@ public sealed partial class BrowserDriver(PlaywrightRunner runner, TestSettings 
 
         if (settings.TraceMode != TraceMode.Off)
         {
-            var tracePath = keepTrace ? Path.Combine(settings.ResolvedArtifactsDirectory, stem + ".trace.zip") : null;
+            var tracePath = keepTrace ? Attachments.PathFor(settings, scenarioTitle, ".trace.zip") : null;
             await _context.Tracing.StopAsync(new TracingStopOptions { Path = tracePath });
             if (tracePath is not null)
-            {
-                TestContext.AddTestAttachment(tracePath, "Playwright trace (open with: npx playwright show-trace)");
                 kept.Add(new Artifact("Playwright trace (open at trace.playwright.dev)", "application/zip", tracePath));
-            }
         }
 
         await _context.CloseAsync();
@@ -120,15 +111,4 @@ public sealed partial class BrowserDriver(PlaywrightRunner runner, TestSettings 
     }
 
     public sealed record Artifact(string Name, string MimeType, string Path);
-
-    private static string ArtifactStem(string scenarioTitle)
-    {
-        var safe = UnsafeChars().Replace(scenarioTitle, "_").Trim('_');
-        if (safe.Length > 80)
-            safe = safe[..80];
-        return $"{safe}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N")[..6]}";
-    }
-
-    [GeneratedRegex(@"[^A-Za-z0-9]+")]
-    private static partial Regex UnsafeChars();
 }
