@@ -62,7 +62,7 @@ jobs:
           --results-directory TestResults
 
       - name: Report
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@v3
         if: always() && env.CAN_WRITE_CHECKS == 'true'
         with:
           name: Unit tests
@@ -192,7 +192,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Report E2E gate
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@v3
         if: always() && env.CAN_WRITE_CHECKS == 'true'
         with:
           name: E2E gate (${{ env.BROWSER }})
@@ -200,7 +200,7 @@ jobs:
           reporter: dotnet-trx
 
       - name: Report known release defects
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@v3
         if: always() && env.CAN_WRITE_CHECKS == 'true'
         with:
           name: Known release defects (${{ env.BROWSER }})
