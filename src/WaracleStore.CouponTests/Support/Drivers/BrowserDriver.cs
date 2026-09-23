@@ -66,14 +66,21 @@ public sealed partial class BrowserDriver(PlaywrightRunner runner, TestSettings 
         return Context.AddInitScriptAsync(script);
     }
 
-    /// <summary>Stops tracing, keeps artefacts according to <see cref="TraceMode"/>, attaches them to the test result and closes the context.</summary>
-    public async Task StopAsync(string scenarioTitle, Exception? error)
+    public bool IsStarted => _context is not null;
+
+    /// <summary>
+    /// Stops tracing, keeps artefacts according to <see cref="TraceMode"/>, attaches them to the
+    /// NUnit result and closes the context. Returns the kept artefacts so the caller can attach
+    /// them elsewhere (the Allure report).
+    /// </summary>
+    public async Task<IReadOnlyList<Artifact>> StopAsync(string scenarioTitle, Exception? error)
     {
         if (_context is null)
-            return;
+            return [];
 
         var failed = error is not null;
         var keepTrace = settings.TraceMode == TraceMode.On || (settings.TraceMode == TraceMode.RetainOnFailure && failed);
+        var kept = new List<Artifact>();
 
         if (keepTrace || failed)
             Directory.CreateDirectory(settings.ResolvedArtifactsDirectory);
@@ -87,6 +94,7 @@ public sealed partial class BrowserDriver(PlaywrightRunner runner, TestSettings 
             {
                 await _page.ScreenshotAsync(new PageScreenshotOptions { Path = screenshotPath, FullPage = true });
                 TestContext.AddTestAttachment(screenshotPath, "Screenshot at failure");
+                kept.Add(new Artifact("Screenshot at failure", "image/png", screenshotPath));
             }
             catch (PlaywrightException)
             {
@@ -99,13 +107,19 @@ public sealed partial class BrowserDriver(PlaywrightRunner runner, TestSettings 
             var tracePath = keepTrace ? Path.Combine(settings.ResolvedArtifactsDirectory, stem + ".trace.zip") : null;
             await _context.Tracing.StopAsync(new TracingStopOptions { Path = tracePath });
             if (tracePath is not null)
+            {
                 TestContext.AddTestAttachment(tracePath, "Playwright trace (open with: npx playwright show-trace)");
+                kept.Add(new Artifact("Playwright trace (open at trace.playwright.dev)", "application/zip", tracePath));
+            }
         }
 
         await _context.CloseAsync();
         _context = null;
         _page = null;
+        return kept;
     }
+
+    public sealed record Artifact(string Name, string MimeType, string Path);
 
     private static string ArtifactStem(string scenarioTitle)
     {

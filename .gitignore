@@ -17,3 +17,8 @@ artifacts/
 # Local overrides
 appsettings.Local.json
 .env
+
+# Allure results/report are generated per run
+allure-results/
+allure-report/
+known-issues.json
