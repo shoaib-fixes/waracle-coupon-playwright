@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WaracleStore.CouponTests/WaracleStore.CouponTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WaracleStore.CouponTests.UnitTests/WaracleStore.CouponTests.UnitTests.csproj" />
+  </Folder>
+</Solution>

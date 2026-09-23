@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+
+# Test output (uploaded by CI, never committed)
+TestResults/
+**/TestResults/
+artifacts/
+
+# Reqnroll generated code-behind is regenerated on build
+*.feature.cs
+
+# Local overrides
+appsettings.Local.json
+.env

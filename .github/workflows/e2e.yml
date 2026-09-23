@@ -1,0 +1,176 @@
+name: Coupon E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: Browser to run the E2E suite in
+        type: choice
+        options: [chromium, firefox, webkit]
+        default: chromium
+      workers:
+        description: Parallel scenario workers
+        default: "4"
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  # The application under test, pinned so a run is reproducible.
+  APP_REPO: Waracle/qa-candidate-test
+  APP_REF: e123f7a7ab9bf4b0b7278f9ff839c2bda812efea
+  BROWSER: ${{ github.event.inputs.browser || 'chromium' }}
+  WORKERS: ${{ github.event.inputs.workers || '4' }}
+
+jobs:
+  unit:
+    name: Unit tests (pricing oracle)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Test
+        run: >
+          dotnet test tests/WaracleStore.CouponTests.UnitTests
+          --configuration Release
+          --logger "trx;LogFileName=unit.trx"
+          --results-directory TestResults
+
+      - name: Report
+        uses: dorny/test-reporter@v2
+        if: always()
+        with:
+          name: Unit tests
+          path: TestResults/unit.trx
+          reporter: dotnet-trx
+
+  e2e:
+    name: E2E (${{ github.event.inputs.browser || 'chromium' }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out Waracle Store
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.APP_REPO }}
+          ref: ${{ env.APP_REF }}
+          path: app
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      # Installed from the monorepo root on purpose: the web app's in-browser mock imports
+      # bcryptjs, which only the backend workspace declares (see README → Observations).
+      - name: Install store dependencies
+        working-directory: app
+        run: npm ci --workspace web --workspace backend --include-workspace-root
+
+      - name: Start store (API :4000, web :5173)
+        working-directory: app
+        run: |
+          npm run start:backend > backend.log 2>&1 &
+          (cd web && VITE_API_URL=http://localhost:4000 npx vite --port 5173 --strictPort > ../web.log 2>&1 &)
+          for attempt in $(seq 1 30); do
+            if curl -sf http://localhost:4000/api/health > /dev/null && curl -sf http://localhost:5173 > /dev/null; then
+              echo "Store is up after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Store did not start"; cat backend.log web.log; exit 1
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build --configuration Release
+
+      - name: Resolve Playwright version
+        run: echo "PLAYWRIGHT_VERSION=$(grep -oP 'Include="Microsoft.Playwright" Version="\K[^"]+' src/WaracleStore.CouponTests/WaracleStore.CouponTests.csproj)" >> "$GITHUB_ENV"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ env.BROWSER }}-${{ env.PLAYWRIGHT_VERSION }}
+
+      - name: Install browser
+        run: pwsh src/WaracleStore.CouponTests/bin/Release/net10.0/playwright.ps1 install --with-deps ${{ env.BROWSER }}
+
+      # Gate: every scenario except those that document a known release defect. Must be green.
+      - name: E2E gate
+        env:
+          TEST_Browser: ${{ env.BROWSER }}
+          TEST_TraceMode: RetainOnFailure
+          TEST_ArtifactsDirectory: ${{ github.workspace }}/artifacts
+        run: >
+          dotnet test src/WaracleStore.CouponTests
+          --no-build --configuration Release
+          --settings src/WaracleStore.CouponTests/test.runsettings
+          --filter "TestCategory!=KnownDefect"
+          --logger "trx;LogFileName=e2e-gate.trx"
+          --results-directory TestResults
+          -- NUnit.NumberOfTestWorkers=${{ env.WORKERS }}
+
+      # Known defects: scenarios that fail on this build of the store because the release does
+      # not meet its acceptance criteria. They run on every build so the moment a fix lands the
+      # result flips, but they never block the pipeline.
+      - name: Known release defects (expected to fail)
+        if: always()
+        continue-on-error: true
+        env:
+          TEST_Browser: ${{ env.BROWSER }}
+          TEST_TraceMode: RetainOnFailure
+          TEST_ArtifactsDirectory: ${{ github.workspace }}/artifacts
+        run: >
+          dotnet test src/WaracleStore.CouponTests
+          --no-build --configuration Release
+          --settings src/WaracleStore.CouponTests/test.runsettings
+          --filter "TestCategory=KnownDefect"
+          --logger "trx;LogFileName=known-defects.trx"
+          --results-directory TestResults
+          -- NUnit.NumberOfTestWorkers=${{ env.WORKERS }}
+
+      - name: Upload results, traces and screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-${{ env.BROWSER }}
+          path: |
+            TestResults/
+            artifacts/
+            app/backend.log
+            app/web.log
+          if-no-files-found: warn
+
+      - name: Report E2E gate
+        uses: dorny/test-reporter@v2
+        if: always()
+        with:
+          name: E2E gate (${{ env.BROWSER }})
+          path: TestResults/e2e-gate.trx
+          reporter: dotnet-trx
+
+      - name: Report known release defects
+        uses: dorny/test-reporter@v2
+        if: always()
+        with:
+          name: Known release defects (${{ env.BROWSER }})
+          path: TestResults/known-defects.trx
+          reporter: dotnet-trx
+          fail-on-error: false
