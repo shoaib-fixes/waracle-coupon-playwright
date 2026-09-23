@@ -216,7 +216,8 @@ jobs:
     needs: e2e
     if: >-
       always() && needs.e2e.result != 'cancelled' &&
-      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main' &&
       github.event.repository.private == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
