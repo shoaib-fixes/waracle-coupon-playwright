@@ -51,9 +51,6 @@ public sealed class CartPage(BrowserDriver driver)
     public Task IncreaseQuantityAsync(string productName) =>
         LineItem(productName).GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "+", Exact = true }).ClickAsync();
 
-    public Task DecreaseQuantityAsync(string productName) =>
-        LineItem(productName).GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "–", Exact = true }).ClickAsync();
-
     public Task RemoveAsync(string productName) =>
         LineItem(productName).GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Remove", Exact = true }).ClickAsync();
 }

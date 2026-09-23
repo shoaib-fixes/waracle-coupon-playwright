@@ -164,7 +164,8 @@ and on demand with a choice of browser and worker count:
    and `backend` workspaces, starts both, waits for health, installs the browser (cached by
    Playwright version), then runs the **gate** (`TestCategory!=KnownDefect`, must pass) followed
    by the **known release defects** (`TestCategory=KnownDefect`, expected to fail, never blocks).
-   TRX results, traces and screenshots are uploaded as artefacts and published as check runs.
+   TRX results, traces and screenshots are uploaded as artefacts, and both result sets are
+   published in the run summary.
 
 ## Out of scope
 
