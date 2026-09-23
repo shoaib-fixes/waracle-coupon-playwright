@@ -43,7 +43,7 @@ Feature: Coupon pricing through the API
       |           |
 
   @Edge
-  Scenario Outline: AC-2 – The launch code is accepted regardless of letter case
+  Scenario Outline: AC-2 – The launch code is accepted regardless of letter case through the API
     When I request a cart summary for "1 x Waracle Cap" with coupon "<Code>"
     Then the response status is 200
     And the response reports the coupon as applied
@@ -54,7 +54,7 @@ Feature: Coupon pricing through the API
       | Waracle25 |
 
   @Edge
-  Scenario: AC-2 – Spaces around the launch code are ignored
+  Scenario: AC-2 – Spaces around the launch code are ignored through the API
     When I request a cart summary for "1 x Waracle Cap" with coupon "WARACLE25" surrounded by spaces
     Then the response status is 200
     And the response reports the coupon as applied

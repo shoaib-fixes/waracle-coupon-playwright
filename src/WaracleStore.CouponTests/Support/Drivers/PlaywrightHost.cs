@@ -4,15 +4,15 @@ using WaracleStore.CouponTests.Support.Config;
 namespace WaracleStore.CouponTests.Support.Drivers;
 
 /// <summary>
-/// Run-scoped Playwright state: one <see cref="IPlaywright"/> and one <see cref="IBrowser"/>
+/// Run-scoped Playwright host: one <see cref="IPlaywright"/> and one <see cref="IBrowser"/>
 /// shared by every scenario, plus a JWT for the demo customer obtained once through the API.
 /// Created in <c>[BeforeTestRun]</c>, never mutated afterwards, so it is safe to read from
 /// parallel scenarios. Each scenario gets its own isolated <see cref="IBrowserContext"/>
 /// from <see cref="BrowserDriver"/>.
 /// </summary>
-public sealed class PlaywrightRunner : IAsyncDisposable
+public sealed class PlaywrightHost : IAsyncDisposable
 {
-    private PlaywrightRunner(IPlaywright playwright, IBrowser browser, string authToken)
+    private PlaywrightHost(IPlaywright playwright, IBrowser browser, string authToken)
     {
         Playwright = playwright;
         Browser = browser;
@@ -26,7 +26,7 @@ public sealed class PlaywrightRunner : IAsyncDisposable
     /// <summary>Bearer token for the configured demo customer, stored by the web app under <c>waracle_token</c>.</summary>
     public string AuthToken { get; }
 
-    public static async Task<PlaywrightRunner> StartAsync(TestSettings settings)
+    public static async Task<PlaywrightHost> StartAsync(TestSettings settings)
     {
         var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
 
@@ -51,7 +51,7 @@ public sealed class PlaywrightRunner : IAsyncDisposable
             SlowMo = settings.SlowMoMs,
         });
 
-        return new PlaywrightRunner(playwright, browser, token);
+        return new PlaywrightHost(playwright, browser, token);
     }
 
     /// <summary>
@@ -60,30 +60,21 @@ public sealed class PlaywrightRunner : IAsyncDisposable
     /// </summary>
     private static async Task AssertStoreIsReachableAsync(IPlaywright playwright, TestSettings settings)
     {
-        await using var api = await playwright.APIRequest.NewContextAsync(new APIRequestNewContextOptions { Timeout = 5_000 });
+        await using var api = await playwright.APIRequest.NewContextAsync(new APIRequestNewContextOptions { Timeout = settings.DefaultTimeoutMs });
 
         var problems = new List<string>();
-
-        try
+        foreach (var (name, url) in new[] { ("API", $"{settings.ApiUrl.TrimEnd('/')}{ApiRoutes.Health}"), ("Web app", settings.BaseUrl) })
         {
-            var health = await api.GetAsync($"{settings.ApiUrl.TrimEnd('/')}/api/health");
-            if (!health.Ok)
-                problems.Add($"API health check at {settings.ApiUrl} returned HTTP {health.Status}.");
-        }
-        catch (PlaywrightException ex)
-        {
-            problems.Add($"API at {settings.ApiUrl} is not reachable ({ex.Message.Split('\n')[0]}).");
-        }
-
-        try
-        {
-            var web = await api.GetAsync(settings.BaseUrl);
-            if (!web.Ok)
-                problems.Add($"Web app at {settings.BaseUrl} returned HTTP {web.Status}.");
-        }
-        catch (PlaywrightException ex)
-        {
-            problems.Add($"Web app at {settings.BaseUrl} is not reachable ({ex.Message.Split('\n')[0]}).");
+            try
+            {
+                var response = await api.GetAsync(url);
+                if (!response.Ok)
+                    problems.Add($"{name} at {url} returned HTTP {response.Status}.");
+            }
+            catch (PlaywrightException ex)
+            {
+                problems.Add($"{name} at {url} is not reachable ({ex.Message.Split('\n')[0]}).");
+            }
         }
 
         if (problems.Count > 0)
@@ -98,10 +89,10 @@ public sealed class PlaywrightRunner : IAsyncDisposable
         await using var api = await playwright.APIRequest.NewContextAsync(new APIRequestNewContextOptions
         {
             BaseURL = settings.ApiUrl,
-            Timeout = 10_000,
+            Timeout = settings.DefaultTimeoutMs,
         });
 
-        var response = await api.PostAsync("/api/auth/login", new APIRequestContextOptions
+        var response = await api.PostAsync(ApiRoutes.Login, new APIRequestContextOptions
         {
             DataObject = new { email = settings.Credentials.Email, password = settings.Credentials.Password },
         });

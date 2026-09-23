@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.Playwright;
+using WaracleStore.CouponTests.Pages.Components;
 using WaracleStore.CouponTests.Support.Drivers;
 using WaracleStore.CouponTests.Support.Pricing;
 
@@ -22,7 +23,7 @@ public sealed class OrderConfirmationPage(BrowserDriver driver)
     public ILocator TotalPaid => Detail("Total Paid");
 
     /// <summary>The "Coupon (CODE)" line in the itemised list. Absent when no discount applied.</summary>
-    public ILocator CouponRow => Page.Locator("div:has(> span:text-matches(\"^Coupon \\\\(\"))");
+    public ILocator CouponRow => Page.Locator(OrderSummaryComponent.CouponRowSelector);
 
     public async Task WaitForAsync()
     {

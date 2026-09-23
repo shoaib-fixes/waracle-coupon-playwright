@@ -15,9 +15,14 @@ on:
         description: Parallel scenario workers
         default: "4"
 
+# Least privilege by default; each job asks for what it needs.
 permissions:
   contents: read
-  checks: write
+
+# A newer push to the same branch or PR cancels the run in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   DOTNET_NOLOGO: "1"
@@ -27,17 +32,27 @@ env:
   APP_REF: e123f7a7ab9bf4b0b7278f9ff839c2bda812efea
   BROWSER: ${{ github.event.inputs.browser || 'chromium' }}
   WORKERS: ${{ github.event.inputs.workers || '4' }}
+  # Pull requests from forks run with a read-only token, so steps that create check runs are
+  # skipped for them; their results are still uploaded as artefacts.
+  CAN_WRITE_CHECKS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
 jobs:
   unit:
     name: Unit tests (pricing oracle)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      - name: Check formatting (.editorconfig)
+        run: dotnet format --verify-no-changes
 
       - name: Test
         run: >
@@ -48,7 +63,7 @@ jobs:
 
       - name: Report
         uses: dorny/test-reporter@v2
-        if: always()
+        if: always() && env.CAN_WRITE_CHECKS == 'true'
         with:
           name: Unit tests
           path: TestResults/unit.trx
@@ -57,6 +72,14 @@ jobs:
   e2e:
     name: E2E (${{ github.event.inputs.browser || 'chromium' }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write
+    env:
+      TEST_Browser: ${{ github.event.inputs.browser || 'chromium' }}
+      TEST_TraceMode: RetainOnFailure
+      TEST_ArtifactsDirectory: ${{ github.workspace }}/artifacts
     steps:
       - uses: actions/checkout@v4
 
@@ -114,10 +137,6 @@ jobs:
 
       # Gate: every scenario except those that document a known release defect. Must be green.
       - name: E2E gate
-        env:
-          TEST_Browser: ${{ env.BROWSER }}
-          TEST_TraceMode: RetainOnFailure
-          TEST_ArtifactsDirectory: ${{ github.workspace }}/artifacts
         run: >
           dotnet test src/WaracleStore.CouponTests
           --no-build --configuration Release
@@ -133,10 +152,6 @@ jobs:
       - name: Known release defects (expected to fail)
         if: always()
         continue-on-error: true
-        env:
-          TEST_Browser: ${{ env.BROWSER }}
-          TEST_TraceMode: RetainOnFailure
-          TEST_ArtifactsDirectory: ${{ github.workspace }}/artifacts
         run: >
           dotnet test src/WaracleStore.CouponTests
           --no-build --configuration Release
@@ -148,10 +163,11 @@ jobs:
 
       # Both test steps write into the same allure-results folder, so one report covers the
       # gate and the known defects, with traces, screenshots and axe scans attached per scenario.
+      # allurerc.mjs in the repo root supplies the grouping and known-issue rules.
       - name: Generate Allure report
         if: always()
         run: >
-          npx --yes allure@3 generate src/WaracleStore.CouponTests/bin/Release/net10.0/allure-results
+          npx --yes allure@3.18.0 generate src/WaracleStore.CouponTests/bin/Release/net10.0/allure-results
           -o allure-report
           --name "Waracle coupon suite (${{ env.BROWSER }})"
 
@@ -177,7 +193,7 @@ jobs:
 
       - name: Report E2E gate
         uses: dorny/test-reporter@v2
-        if: always()
+        if: always() && env.CAN_WRITE_CHECKS == 'true'
         with:
           name: E2E gate (${{ env.BROWSER }})
           path: TestResults/e2e-gate.trx
@@ -185,9 +201,43 @@ jobs:
 
       - name: Report known release defects
         uses: dorny/test-reporter@v2
-        if: always()
+        if: always() && env.CAN_WRITE_CHECKS == 'true'
         with:
           name: Known release defects (${{ env.BROWSER }})
           path: TestResults/known-defects.trx
           reporter: dotnet-trx
           fail-on-error: false
+
+  # Publishes the latest main-branch Allure report to GitHub Pages. Runs only on a public
+  # repository (Pages is unavailable on private repositories of free accounts) and even when the
+  # gate fails, because that is when the report matters most.
+  pages:
+    name: Publish report to GitHub Pages
+    needs: e2e
+    if: >-
+      always() && needs.e2e.result != 'cancelled' &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Download the report
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-report-chromium
+          path: site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

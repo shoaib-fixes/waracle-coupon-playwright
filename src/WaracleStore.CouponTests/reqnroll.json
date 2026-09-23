@@ -6,8 +6,11 @@
   "bindingCulture": {
     "name": "en-GB"
   },
+  "generator": {
+    "addNonParallelizableMarkerForTags": ["Performance"]
+  },
   "trace": {
-    "stepDefinitionSkeletonStyle": "RegexAttribute",
+    "stepDefinitionSkeletonStyle": "CucumberExpressionAttribute",
     "traceSuccessfulSteps": true,
     "traceTimings": false
   }

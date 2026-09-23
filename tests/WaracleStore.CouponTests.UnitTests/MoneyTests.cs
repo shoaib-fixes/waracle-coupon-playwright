@@ -9,6 +9,7 @@ public sealed class MoneyTests
 {
     [TestCase("£24.99", 24.99)]
     [TestCase("£1,234.56", 1234.56)]
+    [TestCase("£1234.56", 1234.56)]
     [TestCase("Pay £64.99", 64.99)]
     [TestCase("£5", 5)]
     public void Parses_gbp_amounts(string text, decimal expected) => Money.Parse(text).ShouldBe(expected);

@@ -14,7 +14,7 @@ excluded from the CI gate. See [Observations on the release](#observations-on-th
 
 ## Running the tests
 
-Prerequisites: [.NET SDK 10](https://dotnet.microsoft.com/download), Node.js 18+, Git.
+Prerequisites: [.NET SDK 10](https://dotnet.microsoft.com/download), Node.js 20+, Git.
 
 ```bash
 # 1. Start the store (clones Waracle/qa-candidate-test next to this repo if needed,
@@ -48,6 +48,8 @@ TEST_Budgets__PageLoadMs=6000 dotnet test               # relax a performance bu
 Configuration lives in `src/WaracleStore.CouponTests/appsettings.json` and can be overridden by an
 untracked `appsettings.Local.json` or `TEST_*` environment variables (`TEST_BaseUrl`,
 `TEST_Credentials__Password`, …). Bad configuration fails once, at start-up, with every problem listed.
+The committed credentials are the store's published demo account; against any real environment,
+supply them through the environment variables instead.
 
 ## The report
 
@@ -207,16 +209,28 @@ suite documents each such compromise in the page object. Details and recommended
 [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) runs on every push and pull request,
 and on demand with a choice of browser and worker count:
 
-1. **Unit tests** – the pricing oracle and parsers, no browser.
+1. **Unit tests** – formatting check against `.editorconfig`, then the pricing oracle and parsers,
+   no browser.
 2. **E2E** – checks out `Waracle/qa-candidate-test` at a pinned commit, installs only the `web`
    and `backend` workspaces, starts both, waits for health, installs the browser (cached by
    Playwright version), then runs the **gate** (`TestCategory!=KnownDefect`, must pass) followed
    by the **known release defects** (`TestCategory=KnownDefect`, expected to fail, never blocks).
    The Allure report, TRX results, traces, screenshots and axe scans are uploaded as artefacts,
-   and both result sets are published in the run summary.
+   and both result sets are published as check runs.
+3. **Pages** – on a public repository, every push to `main` publishes the Allure report to
+   GitHub Pages at <https://shoaib-fixes.github.io/waracle-coupon-playwright/>, gate result or not.
+
+Pull requests from forks run with a read-only token, so the check-run steps are skipped for them;
+their results are still available as artefacts. Runs superseded by a newer push are cancelled, and
+Dependabot keeps the NuGet packages and actions current.
 
 ## Out of scope
 
 Kept out deliberately, per the exercise's "less important" list and the 90-minute guide:
 the mobile app, load testing beyond smoke budgets, visual regression, and exhaustive edge cases
 (multi-currency, concurrent sessions, order history).
+
+## Licence
+
+[MIT](LICENSE). The application under test belongs to Waracle and is fetched from its own
+repository at run time; nothing from it is redistributed here.

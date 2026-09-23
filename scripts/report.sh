@@ -16,4 +16,4 @@ fi
 
 # Run from the repo root so allurerc.mjs (grouping + known-issue rules) is picked up.
 cd "$ROOT"
-npx --yes allure@3 generate "$RESULTS" -o "$OUTPUT" --open
+npx --yes allure@3.18.0 generate "$RESULTS" -o "$OUTPUT" --open

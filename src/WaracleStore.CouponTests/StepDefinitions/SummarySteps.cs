@@ -1,7 +1,6 @@
 using Microsoft.Playwright;
 using Reqnroll;
 using Shouldly;
-using WaracleStore.CouponTests.Pages;
 using WaracleStore.CouponTests.Pages.Components;
 using WaracleStore.CouponTests.Support;
 using WaracleStore.CouponTests.Support.Pricing;
@@ -9,9 +8,9 @@ using WaracleStore.CouponTests.Support.Pricing;
 namespace WaracleStore.CouponTests.StepDefinitions;
 
 [Binding]
-public sealed class SummarySteps(ScenarioState state, CartPage cartPage)
+public sealed class SummarySteps(ScenarioState state, OrderSummaryComponent summary)
 {
-    private OrderSummaryComponent Summary => cartPage.Summary;
+    private OrderSummaryComponent Summary => summary;
 
     [Then("the shipping charge shown is {decimal}")]
     public Task ThenShippingIs(decimal expected) =>
@@ -27,7 +26,7 @@ public sealed class SummarySteps(ScenarioState state, CartPage cartPage)
     {
         var quote = PricingOracle.Quote(state.Basket, state.CouponCode);
         var expected = new DisplayedSummary(quote.Subtotal, quote.HasDiscount ? quote.Discount : null, quote.Shipping, quote.Total, CouponLabel: null);
-        return AssertSummaryAsync(expected, $"AC-2/3/4 applied to {DescribeBasket()} with coupon \"{state.CouponCode}\"");
+        return AssertSummaryAsync(expected, $"AC-2/3/4 applied to {state.DescribeBasket()} with coupon \"{state.CouponCode}\"");
     }
 
     private async Task AssertSummaryAsync(DisplayedSummary expected, string basis)
@@ -52,7 +51,4 @@ public sealed class SummarySteps(ScenarioState state, CartPage cartPage)
             ("shipping", expected.Shipping, displayed.Shipping),
             ("total", expected.Total, displayed.Total));
     }
-
-    private string DescribeBasket() =>
-        string.Join(", ", state.Basket.Select(l => $"{l.Quantity} x {l.Product.Name} @ {Money.Format(l.Product.Price)}"));
 }

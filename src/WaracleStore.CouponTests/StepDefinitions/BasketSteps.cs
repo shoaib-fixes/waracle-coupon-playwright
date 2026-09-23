@@ -1,6 +1,7 @@
 using Microsoft.Playwright;
 using Reqnroll;
 using WaracleStore.CouponTests.Pages;
+using WaracleStore.CouponTests.Pages.Components;
 using WaracleStore.CouponTests.Support;
 using WaracleStore.CouponTests.Support.Data;
 using WaracleStore.CouponTests.Support.Drivers;
@@ -8,7 +9,7 @@ using WaracleStore.CouponTests.Support.Drivers;
 namespace WaracleStore.CouponTests.StepDefinitions;
 
 [Binding]
-public sealed class BasketSteps(BrowserDriver driver, ScenarioState state, CartPage cartPage, ProductDetailsPage productPage)
+public sealed class BasketSteps(BrowserDriver driver, ScenarioState state, CartPage cartPage, ProductDetailsPage productPage, ToastComponent toasts)
 {
     [Given("my basket contains:")]
     public Task GivenBasketContains(Table table) => SeedBasketAsync(BasketParser.FromTable(table));
@@ -25,7 +26,7 @@ public sealed class BasketSteps(BrowserDriver driver, ScenarioState state, CartP
         var product = Catalogue.ByName(productName);
         await productPage.OpenAsync(product);
         await productPage.AddToCartAsync(product.DefaultSize, quantity);
-        await Assertions.Expect(cartPage.Toasts.WithText($"{product.Name} added to cart")).ToBeVisibleAsync();
+        await Assertions.Expect(toasts.WithText($"{product.Name} added to cart")).ToBeVisibleAsync();
         state.AddToBasket(new BasketLine(product, quantity, product.DefaultSize));
     }
 
@@ -65,9 +66,7 @@ public sealed class BasketSteps(BrowserDriver driver, ScenarioState state, CartP
 
     private Task SeedBasketAsync(IReadOnlyList<BasketLine> lines)
     {
-        state.Basket.Clear();
-        foreach (var line in lines)
-            state.AddToBasket(line);
-        return driver.SeedLocalStorageAsync(CartSeeder.StorageKey, CartSeeder.ToStorageJson(state.Basket));
+        state.ReplaceBasket(lines);
+        return driver.SeedLocalStorageAsync(StorageKeys.Cart, CartSeeder.ToStorageJson(state.Basket));
     }
 }

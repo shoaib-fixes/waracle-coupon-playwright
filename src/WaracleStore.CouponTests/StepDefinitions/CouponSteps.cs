@@ -3,14 +3,20 @@ using Microsoft.Playwright;
 using Reqnroll;
 using Shouldly;
 using WaracleStore.CouponTests.Pages;
+using WaracleStore.CouponTests.Pages.Components;
 using WaracleStore.CouponTests.Support;
-using WaracleStore.CouponTests.Support.Drivers;
 
 namespace WaracleStore.CouponTests.StepDefinitions;
 
 [Binding]
-public sealed partial class CouponSteps(BrowserDriver driver, ScenarioState state, CartPage cartPage)
+public sealed partial class CouponSteps(ScenarioState state, CartPage cartPage, OrderSummaryComponent summary, ToastComponent toasts)
 {
+    /// <summary>Toasts render synchronously with the click; this is only a safety margin.</summary>
+    private const int ToastAppearanceMs = 1_000;
+
+    /// <summary>Long enough for any feedback the store could show, short enough not to drag out a known failure.</summary>
+    private const int RejectionMessageMs = 3_000;
+
     [When("I apply the coupon {string}")]
     public Task WhenApplyCoupon(string code) => ApplyAsync(code);
 
@@ -45,29 +51,33 @@ public sealed partial class CouponSteps(BrowserDriver driver, ScenarioState stat
     [Then("the order summary shows a coupon line for {string}")]
     public async Task ThenCouponLineFor(string code)
     {
-        await Assertions.Expect(cartPage.Summary.CouponRow).ToBeVisibleAsync();
-        await Assertions.Expect(cartPage.Summary.CouponRow).ToContainTextAsync(code, new LocatorAssertionsToContainTextOptions { IgnoreCase = true });
+        await Assertions.Expect(summary.CouponRow).ToBeVisibleAsync();
+        await Assertions.Expect(summary.CouponRow).ToContainTextAsync(code, new LocatorAssertionsToContainTextOptions { IgnoreCase = true });
     }
 
     [Then("the order summary shows a coupon line")]
-    public Task ThenCouponLine() => Assertions.Expect(cartPage.Summary.CouponRow).ToBeVisibleAsync();
+    public Task ThenCouponLine() => Assertions.Expect(summary.CouponRow).ToBeVisibleAsync();
 
     [Then("no discount is applied")]
     public async Task ThenNoDiscount()
     {
         // The summary re-prices asynchronously after Apply. Wait for the store to settle on
         // "no coupon" rather than asserting on whatever happened to be rendered first.
-        await Assertions.Expect(cartPage.Summary.CouponRow).ToHaveCountAsync(0);
+        await Assertions.Expect(summary.CouponRow).ToHaveCountAsync(0);
         await Assertions.Expect(cartPage.CouponAppliedNote).ToHaveCountAsync(0);
     }
 
+    /// <summary>
+    /// A rejection could reasonably appear as a toast or inline in the coupon section, so both
+    /// are searched; the rest of the page is not, so unrelated copy cannot satisfy the check.
+    /// </summary>
     [Then("I am shown a clear message that the coupon was not accepted")]
     public async Task ThenClearRejectionMessage()
     {
-        var rejection = driver.Page.GetByText(RejectionWording());
+        var rejection = toasts.All.GetByText(RejectionWording()).Or(summary.Root.GetByText(RejectionWording()));
         try
         {
-            await Assertions.Expect(rejection).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 3_000 });
+            await Assertions.Expect(rejection).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = RejectionMessageMs });
         }
         catch (PlaywrightException)
         {
@@ -93,14 +103,14 @@ public sealed partial class CouponSteps(BrowserDriver driver, ScenarioState stat
     {
         try
         {
-            await cartPage.Toasts.All.First.WaitForAsync(new LocatorWaitForOptions { Timeout = 1_000 });
+            await toasts.All.First.WaitForAsync(new LocatorWaitForOptions { Timeout = ToastAppearanceMs });
         }
         catch (TimeoutException)
         {
             // No toast is itself a finding for AC-5; the assertion step reports it.
         }
 
-        return await cartPage.Toasts.TextsAsync();
+        return await toasts.TextsAsync();
     }
 
     [GeneratedRegex("invalid|not valid|not recognised|not recognized|unknown|expired|incorrect|does not exist|enter a|required|empty|missing", RegexOptions.IgnoreCase)]
