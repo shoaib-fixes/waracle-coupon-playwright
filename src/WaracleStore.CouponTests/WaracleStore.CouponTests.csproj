@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <!-- Browser automation + web-first assertions + tracing -->
-    <PackageReference Include="Microsoft.Playwright" Version="1.62.0" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.63.0" />
 
     <!-- Gherkin features, step bindings, scenario-scoped DI -->
     <PackageReference Include="Reqnroll.NUnit" Version="3.3.4" />
