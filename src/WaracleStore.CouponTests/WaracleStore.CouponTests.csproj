@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <!-- Browser automation + web-first assertions + tracing -->
-    <PackageReference Include="Microsoft.Playwright" Version="1.63.0" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.64.1" />
 
     <!-- Gherkin features, step bindings, scenario-scoped DI -->
     <PackageReference Include="Reqnroll.NUnit" Version="3.3.4" />
@@ -25,7 +25,7 @@
     <PackageReference Include="Shouldly" Version="4.3.0" />
 
     <!-- axe-core accessibility scans on a Playwright page -->
-    <PackageReference Include="Deque.AxeCore.Playwright" Version="4.13.0" />
+    <PackageReference Include="Deque.AxeCore.Playwright" Version="4.14.0" />
 
     <!-- Allure results per scenario (steps, attachments, parameters); rendered with `allure generate` -->
     <PackageReference Include="Allure.Reqnroll" Version="2.15.0" />
